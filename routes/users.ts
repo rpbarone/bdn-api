@@ -359,10 +359,11 @@ export default async function userRoutes(fastify: FastifyInstance) {
     const customReply = reply as any;
     
     try {
-      // Body já foi filtrado pelo middleware de permissões
+      // Usar dados do contexto do hook se disponível, caso contrário usar body
+      const hookCtx = (request as any).hookCtx;
       const userData = {
-        ...request.body,
-        updatedBy: request.user!.id
+        ...(hookCtx?.data || request.body),
+        updatedBy: request.user!._id
       };
 
       // Criar usuário
@@ -494,10 +495,11 @@ export default async function userRoutes(fastify: FastifyInstance) {
     const customReply = reply as any;
     
     try {
-      // Body já foi filtrado pelo middleware de permissões
+      // Usar dados do contexto do hook se disponível, caso contrário usar body
+      const hookCtx = (request as any).hookCtx;
       const updateData = {
-        ...request.body,
-        updatedBy: request.user!.id
+        ...(hookCtx?.data || request.body),
+        updatedBy: request.user!._id
       };
 
       // Atualizar usuário

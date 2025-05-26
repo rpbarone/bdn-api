@@ -44,7 +44,9 @@ const CouponSchema = new Schema<ICoupon>({
     ref: 'User',
     validate: {
       validator: function(this: ICoupon, v: any) {
-        return this.origin === 'all' || (this.origin !== 'all' && v !== undefined);
+        // Se origem é 'all', não precisa de influenciador
+        // Se origem é 'organic' ou 'trafficPaid', precisa de influenciador
+        return this.origin === 'all' || v !== undefined;
       },
       message: 'Influenciador associado é obrigatório para cupons organic e trafficPaid'
     }
