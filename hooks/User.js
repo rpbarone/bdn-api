@@ -1,30 +1,27 @@
 /**
- * Hooks do modelo User
- * Define ações antes e depois das operações CRUD
+ * Hooks do modelo User - Versão Otimizada
+ * Apenas validações que as policies não conseguem fazer
  */
 
 module.exports = {
   // Antes de criar um usuário
   beforeCreate: {
-    name: 'validar-criacao-usuario',
+    name: 'preparar-criacao-usuario',
     run: async (ctx) => {
       const { data, user } = ctx;
 
-      // Admin não pode criar super_admin
-      if (user.role === 'admin' && data.role === 'super_admin') {
-        throw new Error('Admin não pode criar super_admin');
+      // Validar se email já existe (policies não fazem queries)
+      if (data.email) {
+        const existingUser = await ctx.Model.findOne({ 
+          email: data.email.toLowerCase() 
+        });
+        
+        if (existingUser) {
+          throw new Error('Email já está em uso');
+        }
       }
 
-      // Validar se email já existe (case insensitive)
-      const existingUser = await ctx.Model.findOne({ 
-        email: data.email?.toLowerCase() 
-      });
-      
-      if (existingUser) {
-        throw new Error('Email já está em uso');
-      }
-
-      // Normalizar nome para busca
+      // Normalizar nome para busca (útil para filtros)
       if (data.name) {
         data.normalizedName = data.name
           .toLowerCase()
@@ -39,19 +36,9 @@ module.exports = {
 
   // Antes de atualizar um usuário
   beforeUpdate: {
-    name: 'validar-atualizacao-usuario',
+    name: 'preparar-atualizacao-usuario',
     run: async (ctx) => {
       const { data, user, target } = ctx;
-
-      // Admin não pode promover para super_admin
-      if (user.role === 'admin' && data.role === 'super_admin') {
-        throw new Error('Admin não pode promover usuário para super_admin');
-      }
-
-      // Admin não pode alterar super_admin
-      if (user.role === 'admin' && target && target.role === 'super_admin') {
-        throw new Error('Admin não pode modificar super_admin');
-      }
 
       // Validar email único se estiver sendo alterado
       if (data.email && data.email !== target?.email) {
@@ -85,17 +72,12 @@ module.exports = {
     run: async (ctx) => {
       const { user, target } = ctx;
 
-      // Admin não pode deletar super_admin
-      if (user.role === 'admin' && target && target.role === 'super_admin') {
-        throw new Error('Admin não pode deletar super_admin');
-      }
-
-      // Não pode deletar a si mesmo
+      // Não pode deletar a si mesmo (não está nas policies)
       if (user._id.toString() === target._id.toString()) {
         throw new Error('Você não pode deletar sua própria conta');
       }
 
-      // Verificar se é o último super_admin
+      // Verificar se é o último super_admin (requer query)
       if (target.role === 'super_admin') {
         const superAdminCount = await ctx.Model.countDocuments({ 
           role: 'super_admin',
@@ -109,7 +91,7 @@ module.exports = {
     }
   },
 
-  // Depois de criar usuário
+  // Depois de criar usuário (para logs/auditoria)
   afterCreate: {
     name: 'pos-criacao-usuario',
     run: async (ctx) => {
@@ -123,20 +105,7 @@ module.exports = {
       // - Criação de registros relacionados
       // - Notificações para admins
     }
-  },
-
-  // Hook global para registrar último acesso
-  onAuthentication: {
-    name: 'registrar-ultimo-acesso',
-    run: async (ctx) => {
-      const { user } = ctx;
-      
-      // Atualizar lastLogin sem disparar hooks ou validações
-      await ctx.Model.updateOne(
-        { _id: user._id },
-        { $set: { lastLogin: new Date() } },
-        { timestamps: false }
-      );
-    }
   }
+
+  // REMOVIDO: onAuthentication - já está no middleware JWT
 };
