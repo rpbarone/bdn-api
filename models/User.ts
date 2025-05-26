@@ -7,8 +7,10 @@ import {
   validateCPF, 
   validateDate, 
   validateInstagram, 
-  validateCEP 
+  validateCEP,
+  validatePassword 
 } from '../utils/validations';
+import { PASSWORD_VALIDATION_OPTIONS, SECURITY_CONFIG } from '../utils/constants';
 
 // Tipo para role do usuário
 export type UserRole = 'influencer' | 'admin' | 'super_admin';
@@ -131,8 +133,29 @@ const UserSchema = new Schema<IUser>({
   password: { 
     type: String, 
     required: [true, 'Senha é obrigatória'],
-    minlength: [6, 'Senha deve ter no mínimo 6 caracteres'],
-    select: false // Não retorna senha por padrão
+    select: false, // Não retorna senha por padrão
+    validate: {
+      validator: function(value: string) {
+        // Só valida se for senha nova (não hash)
+        if (!value || value.startsWith('$2a$') || value.startsWith('$2b$')) {
+          return true;
+        }
+        
+        const validation = validatePassword(value, PASSWORD_VALIDATION_OPTIONS);
+        
+        return validation.isValid;
+      },
+      message: function(props: any) {
+        // Só valida se for senha nova (não hash)
+        if (!props.value || props.value.startsWith('$2a$') || props.value.startsWith('$2b$')) {
+          return '';
+        }
+        
+        const validation = validatePassword(props.value, PASSWORD_VALIDATION_OPTIONS);
+        
+        return validation.errors.join(', ');
+      }
+    }
   },
   profilePicture: String,
   status: { 
@@ -296,7 +319,6 @@ UserSchema.index({ role: 1, status: 1 });
 UserSchema.index({ passwordResetToken: 1 });
 
 
-
 // Método para comparar senha
 UserSchema.methods.comparePassword = async function(candidatePassword: string): Promise<boolean> {
   try {
@@ -316,7 +338,7 @@ UserSchema.methods.createPasswordResetToken = function(): string {
   );
   
   this.passwordResetToken = hashedToken;
-  this.passwordResetExpires = new Date(Date.now() + 30 * 60 * 1000); // 30 minutos
+  this.passwordResetExpires = new Date(Date.now() + SECURITY_CONFIG.PASSWORD_RESET_EXPIRATION);
   
   return resetToken;
 };

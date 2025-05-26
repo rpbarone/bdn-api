@@ -1,5 +1,6 @@
 const bcrypt = require('bcryptjs');
 const mongoose = require('mongoose');
+const { SECURITY_CONFIG } = require('../utils/constants');
 
 /**
  * Gera um código de cupom único
@@ -76,7 +77,7 @@ const UserHooks = {
       name: 'hashPasswordBeforeCreate',
       run: async (ctx) => {
         if (ctx.data?.password) {
-          const rounds = parseInt(process.env.BCRYPT_ROUNDS || '10', 10);
+          const rounds = SECURITY_CONFIG.BCRYPT_SALT_ROUNDS;
           ctx.data.password = await bcrypt.hash(ctx.data.password, rounds);
         }
       }
@@ -101,7 +102,7 @@ const UserHooks = {
       condition: 'data.password', // Só executa se senha for fornecida
       run: async (ctx) => {
         if (ctx.data?.password) {
-          const rounds = parseInt(process.env.BCRYPT_ROUNDS || '10', 10);
+          const rounds = SECURITY_CONFIG.BCRYPT_SALT_ROUNDS;
           ctx.data.password = await bcrypt.hash(ctx.data.password, rounds);
         }
       }
