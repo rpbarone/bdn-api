@@ -76,13 +76,17 @@ export default async function whatsappRoutes(fastify: FastifyInstance) {
             // Limpar o número, removendo tudo que não é dígito
             let cleanPhone = phoneMatch.replace(/\D/g, '');
             
-            // Remover DDI se presente (assumindo que DDI tem 2 dígitos)
-            // Se o número tem mais de 11 dígitos, provavelmente tem DDI
+            // Remover DDI se presente
+            // DDI brasileiro é 55 (2 dígitos), mas pode variar
             if (cleanPhone.length > 11) {
-              // Remover os primeiros dígitos que representam o DDI
-              // DDI brasileiro é 55, mas pode ser outro
-              const possibleDDILength = cleanPhone.length - 11;
-              cleanPhone = cleanPhone.substring(possibleDDILength);
+              // Para números brasileiros, tentar identificar o padrão
+              if (cleanPhone.startsWith('55') && (cleanPhone.length === 13 || cleanPhone.length === 14)) {
+                cleanPhone = cleanPhone.substring(2);
+              } else {
+                // Para outros DDIs, assumir que tem mais de 11 dígitos
+                const possibleDDILength = cleanPhone.length - 11;
+                cleanPhone = cleanPhone.substring(possibleDDILength);
+              }
             }
             
             // Validar se o número tem formato válido (10 ou 11 dígitos)
