@@ -43,6 +43,15 @@ export async function authenticateJWT(request: FastifyRequest, reply: FastifyRep
     // Adicionar usuário ao request
     request.user = user;
 
+    // Atualizar lastLogin (sem await para não bloquear)
+    User.updateOne(
+      { _id: user._id },
+      { $set: { lastLogin: new Date() } },
+      { timestamps: false }
+    ).catch(err => {
+      console.error('Erro ao atualizar lastLogin:', err);
+    });
+
   } catch (error: any) {
     if (error.name === 'TokenExpiredError') {
       return customReply.erro('Token expirado', 401);
