@@ -1,85 +1,10 @@
 // Tipos principais para o sistema BDN
 import { Document, Model } from 'mongoose';
 import { FastifyRequest, FastifyReply } from 'fastify';
+import { IUser, UserRole } from '../models/User';
 
-// ========================================
-// TIPOS DE USUÁRIO E AUTENTICAÇÃO
-// ========================================
-export type UserRole = 'influencer' | 'admin' | 'super_admin';
-
-export interface IUser extends Document {
-  id: string;
-  name: string;
-  normalizedName?: string;
-  username: string;
-  role: UserRole;
-  email: string;
-  password: string;
-  profilePicture?: string;
-  status: 'ativo' | 'inativo';
-  deactivationReason?: string;
-  level?: 1 | 2 | 3 | 4;
-  bodyCoins: number;
-  rankingPoints: number;
-  ranking?: number;
-  birthDate?: Date;
-  gender?: string;
-  cpf?: string;
-  rg?: string;
-  phone?: string;
-  social?: {
-    instagram?: string;
-    tiktok?: string;
-    xtwitter?: string;
-    youtube?: string;
-    facebook?: string;
-  };
-  bankInfo?: {
-    code?: string;
-    name?: string;
-    agency?: string;
-    accountNumber?: string;
-    pixType?: 'cpf' | 'email' | 'phone' | 'random';
-    pixKey?: string;
-  };
-  address?: {
-    zipCode?: string;
-    street?: string;
-    number?: string;
-    complement?: string;
-    neighborhood?: string;
-    city?: string;
-    state?: string;
-  };
-  coupons?: {
-    organicCode?: string;
-    trafficPaidCode?: string;
-  };
-  hasReviewedApp: boolean;
-  onboarding?: {
-    isCourseCompleted: boolean;
-    whatsappGroupMember: boolean;
-    isProfileCompleted: boolean;
-  };
-  referredBy?: string;
-  leadId?: string;
-  approvalDate?: Date;
-  niches?: string[];
-  lastLogin?: Date;
-  createdAt: Date;
-  updatedAt: Date;
-  updatedBy?: string;
-  // Campos 2FA
-  twoFactorSecret?: string;
-  twoFactorEnabled: boolean;
-  twoFactorBackupCodes?: string[];
-  // Campos reset senha
-  passwordResetToken?: string;
-  passwordResetExpires?: Date;
-  // Métodos
-  comparePassword(candidatePassword: string): Promise<boolean>;
-  createPasswordResetToken(): string;
-}
+// Re-exportar tipos do User para manter compatibilidade
+export { IUser, UserRole };
 
 // ========================================
 // TIPOS DE POLICIES

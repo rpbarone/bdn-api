@@ -1,8 +1,8 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import User from '../models/User';
-import { IUser } from '../types';
+import User, { IUser } from '../models/User';
 import { authenticateJWT } from '../middlewares/jwt';
 import { verificarPermissoes } from '../middlewares/authMiddleware';
+import { aplicarHooks } from '../middlewares/hooksMiddleware';
 
 interface GetUsersQuery {
   page?: number;
@@ -277,7 +277,7 @@ export default async function userRoutes(fastify: FastifyInstance) {
    * Cria um novo usuário
    */
   fastify.post<{ Body: CreateUserBody }>('/users', {
-    preHandler: [authenticateJWT, verificarPermissoes('User')],
+    preHandler: [authenticateJWT, verificarPermissoes('User'), aplicarHooks('User', 'create')],
     schema: {
       body: {
         type: 'object',
@@ -372,6 +372,11 @@ export default async function userRoutes(fastify: FastifyInstance) {
       // Buscar usuário criado para retornar com virtuals
       const createdUser = await User.findById(user._id).lean();
 
+      // Executar after hooks
+      if ((request as any).afterHook) {
+        await (request as any).afterHook(createdUser);
+      }
+
       // Aplicar filtro de campos baseado nas permissões
       const filteredUser = request.permissionFilter ? request.permissionFilter(createdUser) : createdUser;
 
@@ -401,7 +406,7 @@ export default async function userRoutes(fastify: FastifyInstance) {
    * Atualiza um usuário
    */
   fastify.put<{ Params: GetUserParams; Body: UpdateUserBody }>('/users/:id', {
-    preHandler: [authenticateJWT, verificarPermissoes('User')],
+    preHandler: [authenticateJWT, verificarPermissoes('User'), aplicarHooks('User', 'update')],
     schema: {
       params: {
         type: 'object',
@@ -506,6 +511,11 @@ export default async function userRoutes(fastify: FastifyInstance) {
         return customReply.erro('Usuário não encontrado', 404);
       }
 
+      // Executar after hooks
+      if ((request as any).afterHook) {
+        await (request as any).afterHook(user);
+      }
+
       // Aplicar filtro de campos baseado nas permissões
       const filteredUser = request.permissionFilter ? request.permissionFilter(user) : user;
 
@@ -535,7 +545,7 @@ export default async function userRoutes(fastify: FastifyInstance) {
    * Remove um usuário
    */
   fastify.delete<{ Params: GetUserParams }>('/users/:id', {
-    preHandler: [authenticateJWT, verificarPermissoes('User')],
+    preHandler: [authenticateJWT, verificarPermissoes('User'), aplicarHooks('User', 'delete')],
     schema: {
       params: {
         type: 'object',
@@ -553,6 +563,11 @@ export default async function userRoutes(fastify: FastifyInstance) {
       
       if (!user) {
         return customReply.erro('Usuário não encontrado', 404);
+      }
+
+      // Executar after hooks
+      if ((request as any).afterHook) {
+        await (request as any).afterHook(user);
       }
 
       return customReply.sucesso(null, 'Usuário removido com sucesso');

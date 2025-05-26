@@ -1,7 +1,92 @@
-import mongoose, { Schema } from 'mongoose';
+import mongoose, { Schema, Document } from 'mongoose';
 import bcrypt from 'bcryptjs';
-import { IUser } from '../types';
 import { generateSecureToken, hashToObjectId } from '../utils/crypto';
+import { 
+  validateEmail, 
+  validatePhone, 
+  validateCPF, 
+  validateDate, 
+  validateInstagram, 
+  validateCEP 
+} from '../utils/validations';
+
+// Tipo para role do usuário
+export type UserRole = 'influencer' | 'admin' | 'super_admin';
+
+// Interface para o documento User
+export interface IUser extends Document {
+  id: string;
+  name: string;
+  normalizedName?: string;
+  username: string;
+  role: UserRole;
+  email: string;
+  password: string;
+  profilePicture?: string;
+  status: 'ativo' | 'inativo';
+  deactivationReason?: string;
+  level?: 1 | 2 | 3 | 4;
+  bodyCoins: number;
+  rankingPoints: number;
+  ranking?: number;
+  birthDate?: Date;
+  gender?: string;
+  cpf?: string;
+  rg?: string;
+  phone?: string;
+  social?: {
+    instagram?: string;
+    tiktok?: string;
+    xtwitter?: string;
+    youtube?: string;
+    facebook?: string;
+  };
+  bankInfo?: {
+    code?: string;
+    name?: string;
+    agency?: string;
+    accountNumber?: string;
+    pixType?: 'cpf' | 'email' | 'phone' | 'random';
+    pixKey?: string;
+  };
+  address?: {
+    zipCode?: string;
+    street?: string;
+    number?: string;
+    complement?: string;
+    neighborhood?: string;
+    city?: string;
+    state?: string;
+  };
+  coupons?: {
+    organicCode?: string;
+    trafficPaidCode?: string;
+  };
+  hasReviewedApp: boolean;
+  onboarding?: {
+    isCourseCompleted: boolean;
+    whatsappGroupMember: boolean;
+    isProfileCompleted: boolean;
+  };
+  referredBy?: string;
+  leadId?: string;
+  approvalDate?: Date;
+  niches?: string[];
+  lastLogin?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+  updatedBy?: string;
+  // Campos 2FA
+  twoFactorSecret?: string;
+  twoFactorEnabled: boolean;
+  twoFactorBackupCodes?: string[];
+  // Campos reset senha
+  passwordResetToken?: string;
+  passwordResetExpires?: Date;
+  // Métodos
+  comparePassword(candidatePassword: string): Promise<boolean>;
+  createPasswordResetToken(): string;
+}
 
 const UserSchema = new Schema<IUser>({
   name: { 
@@ -38,7 +123,10 @@ const UserSchema = new Schema<IUser>({
     unique: true,
     trim: true,
     lowercase: true,
-    match: [/^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'Email inválido']
+    validate: {
+      validator: validateEmail,
+      message: 'Email inválido'
+    }
   },
   password: { 
     type: String, 
@@ -69,19 +157,37 @@ const UserSchema = new Schema<IUser>({
     min: [0, 'Pontos de ranking não podem ser negativos']
   },
   ranking: Number,
-  birthDate: Date,
+  birthDate: {
+    type: Date,
+    validate: {
+      validator: (v: Date) => !v || validateDate(v, { minAge: 13, maxAge: 120 }),
+      message: 'Data de nascimento inválida ou idade fora do permitido (13-120 anos)'
+    }
+  },
   gender: String,
   cpf: {
     type: String,
-    match: [/^\d{11}$/, 'CPF deve conter 11 dígitos']
+    validate: {
+      validator: (v: string) => !v || validateCPF(v),
+      message: 'CPF inválido'
+    }
   },
   rg: String,
   phone: {
     type: String,
-    match: [/^\+?[\d\s()-]+$/, 'Telefone inválido']
+    validate: {
+      validator: (v: string) => !v || validatePhone(v),
+      message: 'Telefone inválido'
+    }
   },
   social: {
-    instagram: String,
+    instagram: {
+      type: String,
+      validate: {
+        validator: (v: string) => !v || validateInstagram(v),
+        message: 'Username do Instagram inválido'
+      }
+    },
     tiktok: String,
     xtwitter: String,
     youtube: String,
@@ -96,10 +202,37 @@ const UserSchema = new Schema<IUser>({
       type: String,
       enum: ['cpf', 'email', 'phone', 'random']
     },
-    pixKey: String
+    pixKey: {
+      type: String,
+      validate: {
+        validator: function(this: IUser, v: string) {
+          if (!v || !this.bankInfo?.pixType) return true;
+          
+          switch (this.bankInfo.pixType) {
+            case 'cpf':
+              return validateCPF(v);
+            case 'email':
+              return validateEmail(v);
+            case 'phone':
+              return validatePhone(v);
+            case 'random':
+              return true; // Chave aleatória não tem validação específica
+            default:
+              return true;
+          }
+        },
+        message: 'Chave PIX inválida para o tipo selecionado'
+      }
+    }
   },
   address: {
-    zipCode: String,
+    zipCode: {
+      type: String,
+      validate: {
+        validator: (v: string) => !v || validateCEP(v),
+        message: 'CEP inválido'
+      }
+    },
     street: String,
     number: String,
     complement: String,
@@ -155,38 +288,14 @@ const UserSchema = new Schema<IUser>({
     select: false
   }
 }, {
-  timestamps: true,
-  toJSON: { virtuals: true },
-  toObject: { virtuals: true }
+  timestamps: true
 });
 
 // Índices para performance
-// UserSchema.index({ email: 1 }); // Removido - já tem unique: true
-// UserSchema.index({ username: 1 }); // Removido - já tem unique: true
 UserSchema.index({ role: 1, status: 1 });
 UserSchema.index({ passwordResetToken: 1 });
 
-// Pre-save hook para hash da senha
-UserSchema.pre('save', async function(next) {
-  // Só faz hash se a senha foi modificada
-  if (!this.isModified('password')) return next();
-  
-  try {
-    const rounds = parseInt(process.env.BCRYPT_ROUNDS || '10', 10);
-    this.password = await bcrypt.hash(this.password, rounds);
-    next();
-  } catch (error) {
-    next(error as Error);
-  }
-});
 
-// Pre-save hook para normalizar nome
-UserSchema.pre('save', function(next) {
-  if (this.name) {
-    this.normalizedName = this.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  }
-  next();
-});
 
 // Método para comparar senha
 UserSchema.methods.comparePassword = async function(candidatePassword: string): Promise<boolean> {
@@ -211,10 +320,5 @@ UserSchema.methods.createPasswordResetToken = function(): string {
   
   return resetToken;
 };
-
-// Virtual para ID sem underscore
-UserSchema.virtual('id').get(function(this: any) {
-  return this._id?.toHexString() || this._id?.toString();
-});
 
 export default mongoose.model<IUser>('User', UserSchema);
