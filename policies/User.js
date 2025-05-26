@@ -27,7 +27,6 @@ module.exports = {
       public: [
         'id',
         'name',
-        'username',
         'profilePicture',
         'ranking',
         'social',
@@ -106,9 +105,6 @@ module.exports = {
     
     // CPF deve ser único se fornecido
     'unique-cpf': '!body.cpf || !target || body.cpf === target.cpf',
-    
-    // Username não pode ser alterado após criação (exceto por admin+ em targets que não sejam super_admin)
-    'username-immutable': '!body.username || !target || body.username === target.username || (admin+ && (!target || target.role !== "super_admin"))',
     
     // Email só pode ser alterado pelo próprio usuário ou admin+ (ou na criação), mas admin não pode alterar de super_admin
     'email-protection': '!body.email || operation === "create" || isSelf || (admin+ && (!target || target.role !== "super_admin"))',

@@ -20,7 +20,6 @@ export interface IUser extends Document {
   id: string;  // ID amigável (INF1000 ou ADM1000)
   name: string;
   normalizedName?: string;
-  username: string;
   role: UserRole;
   email: string;
   password: string;
@@ -112,16 +111,6 @@ const UserSchema = new Schema<IUser>({
     type: String,
     trim: true,
     lowercase: true
-  },
-  username: { 
-    type: String, 
-    required: [true, 'Username é obrigatório'],
-    unique: true,
-    trim: true,
-    lowercase: true,
-    minlength: [3, 'Username deve ter no mínimo 3 caracteres'],
-    maxlength: [30, 'Username deve ter no máximo 30 caracteres'],
-    match: [/^[a-zA-Z0-9_]+$/, 'Username só pode conter letras, números e underscore']
   },
   role: { 
     type: String, 

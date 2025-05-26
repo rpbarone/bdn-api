@@ -115,18 +115,6 @@ export function normalizeName(name: string): string {
 }
 
 /**
- * Gera username único baseado no nome
- */
-export function generateUsername(name: string): string {
-  const base = normalizeName(name)
-    .replace(/\s+/g, '_')
-    .substring(0, 20);
-  
-  const suffix = Date.now().toString(36).substring(-4);
-  return `${base}_${suffix}`;
-}
-
-/**
  * Calcula tempo decorrido em formato legível
  */
 export function timeAgo(date: Date): string {

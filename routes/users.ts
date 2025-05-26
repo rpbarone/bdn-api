@@ -11,7 +11,6 @@ interface GetUsersQuery {
   sortOrder?: 'asc' | 'desc';
   // Filtros
   name?: string;
-  username?: string;
   email?: string;
   role?: string;
   status?: string;
@@ -37,7 +36,6 @@ interface GetUserParams {
 
 interface CreateUserBody {
   name: string;
-  username: string;
   email: string;
   password: string;
   role?: string;
@@ -110,7 +108,6 @@ export default async function userRoutes(fastify: FastifyInstance) {
           sortBy: { type: 'string' },
           sortOrder: { type: 'string', enum: ['asc', 'desc'] },
           name: { type: 'string' },
-          username: { type: 'string' },
           email: { type: 'string' },
           role: { type: 'string', enum: ['influencer', 'admin', 'super_admin'] },
           status: { type: 'string', enum: ['ativo', 'inativo'] },
@@ -149,9 +146,6 @@ export default async function userRoutes(fastify: FastifyInstance) {
       // Filtros de texto (busca parcial case-insensitive)
       if (filters.name) {
         query.normalizedName = { $regex: filters.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''), $options: 'i' };
-      }
-      if (filters.username) {
-        query.username = { $regex: filters.username, $options: 'i' };
       }
       if (filters.email) {
         query.email = { $regex: filters.email, $options: 'i' };
@@ -281,10 +275,9 @@ export default async function userRoutes(fastify: FastifyInstance) {
     schema: {
       body: {
         type: 'object',
-        required: ['name', 'username', 'email', 'password'],
+        required: ['name', 'email', 'password'],
         properties: {
           name: { type: 'string', minLength: 2, maxLength: 100 },
-          username: { type: 'string', minLength: 3, maxLength: 30, pattern: '^[a-zA-Z0-9_]+$' },
           email: { type: 'string', format: 'email' },
           password: { type: 'string', minLength: 6 },
           role: { type: 'string', enum: ['influencer', 'admin', 'super_admin'] },
@@ -420,7 +413,6 @@ export default async function userRoutes(fastify: FastifyInstance) {
         type: 'object',
         properties: {
           name: { type: 'string', minLength: 2, maxLength: 100 },
-          username: { type: 'string', minLength: 3, maxLength: 30, pattern: '^[a-zA-Z0-9_]+$' },
           email: { type: 'string', format: 'email' },
           password: { type: 'string', minLength: 6 },
           role: { type: 'string', enum: ['influencer', 'admin', 'super_admin'] },
