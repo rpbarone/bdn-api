@@ -7,8 +7,6 @@ import {
   HookDefinition,
   ModelHooks,
   HookType,
-  CustomRequest,
-  CustomResponse,
   Operation
 } from '../types';
 
@@ -36,13 +34,13 @@ export const aplicarHooks = (modelo: string, operacao: string) => {
 
   return async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
     try {
-      const ctx = await criarContexto(request as CustomRequest, modelo, op);
+      const ctx = await criarContexto(request, modelo, op);
 
       // Before hooks
       await executar(`before${capitalizar(op)}` as HookType, ctx);
 
-      (request as CustomRequest).hookCtx = ctx;
-      (request as CustomRequest).afterHook = async (result: any) => {
+      request.hookCtx = ctx;
+      request.afterHook = async (result: any) => {
         ctx.result = result;
         await executar(`after${capitalizar(op)}` as HookType, ctx);
       };
@@ -51,7 +49,7 @@ export const aplicarHooks = (modelo: string, operacao: string) => {
       // Hook de erro com contexto completo
       try {
         const errorCtx: HookContext = {
-          ...(request as CustomRequest).hookCtx!,
+          ...request.hookCtx!,
           error: err,
           model: modelo,
           operation: op
@@ -61,8 +59,7 @@ export const aplicarHooks = (modelo: string, operacao: string) => {
         console.error(`🚨 Erro no hook de erro: ${hookErr.message}`);
       }
 
-      const customReply = reply as any;
-      return customReply.erro(err.message, err.statusCode || 500);
+      return reply.erro(err.message, err.statusCode || 500);
     }
   };
 };
@@ -82,7 +79,7 @@ export const hook = async (modelo: string, nome: HookType, dados: Partial<HookCo
 /**
  * Cria contexto inteligente para hooks
  */
-const criarContexto = async (req: CustomRequest, modelo: string, operacao: Operation): Promise<HookContext> => {
+const criarContexto = async (req: FastifyRequest, modelo: string, operacao: Operation): Promise<HookContext> => {
   const { user, body, params } = req;
 
   let target = null;
