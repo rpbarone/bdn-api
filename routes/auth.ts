@@ -12,6 +12,7 @@ interface LoginBody {
   password?: string;
   instagram?: string;
   twoFactorCode?: string;
+  rememberMe?: boolean;
 }
 
 interface ResetPasswordRequestBody {
@@ -72,7 +73,8 @@ export default async function authRoutes(fastify: FastifyInstance) {
             properties: {
               email: { type: 'string', format: 'email' },
               password: { type: 'string', minLength: 6 },
-              twoFactorCode: { type: 'string', pattern: '^[0-9]{6}$' }
+              twoFactorCode: { type: 'string', pattern: '^[0-9]{6}$' },
+              rememberMe: { type: 'boolean' }
             }
           },
           {
@@ -80,14 +82,15 @@ export default async function authRoutes(fastify: FastifyInstance) {
             properties: {
               instagram: { type: 'string', minLength: 1 },
               password: { type: 'string', minLength: 6 },
-              twoFactorCode: { type: 'string', pattern: '^[0-9]{6}$' }
+              twoFactorCode: { type: 'string', pattern: '^[0-9]{6}$' },
+              rememberMe: { type: 'boolean' }
             }
           }
         ]
       }
     }
   }, async (request: FastifyRequest<{ Body: LoginBody }>, reply: FastifyReply) => {
-    const { email, instagram, password, twoFactorCode } = request.body;
+    const { email, instagram, password, twoFactorCode, rememberMe } = request.body;
     const customReply = reply as any;
 
     try {
@@ -169,28 +172,43 @@ export default async function authRoutes(fastify: FastifyInstance) {
       user.lastLogin = new Date();
       await user.save();
 
-      // Gerar tokens JWT
+      // Gerar tokens JWT com tempo de expiração baseado em rememberMe
       const tokenPayload: JWTPayload = {
         userId: user.id,
         email: user.email,
         role: user.role
       };
 
+      // Se rememberMe for true, tokens duram mais tempo
+      const accessTokenExpiry = rememberMe ? '7d' : '24h';
+      const refreshTokenExpiry = rememberMe ? '90d' : '30d';
+      const cookieMaxAge = rememberMe ? 90 * 24 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000; // 90 dias ou 7 dias
+
       const accessToken = jwt.sign(
         tokenPayload,
         process.env.JWT_SECRET || 'default-secret',
-        { expiresIn: '24h' }
+        { expiresIn: accessTokenExpiry }
       );
 
       const refreshToken = jwt.sign(
         tokenPayload,
         process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET || 'default-secret',
-        { expiresIn: '30d' }
+        { expiresIn: refreshTokenExpiry }
       );
 
-      // Definir cookies
-      reply.setCookie('access_token', accessToken, COOKIE_OPTIONS);
-      reply.setCookie('refresh_token', refreshToken, REFRESH_COOKIE_OPTIONS);
+      // Definir cookies com tempo de expiração apropriado
+      const customCookieOptions = {
+        ...COOKIE_OPTIONS,
+        maxAge: cookieMaxAge
+      };
+      
+      const customRefreshCookieOptions = {
+        ...REFRESH_COOKIE_OPTIONS,
+        maxAge: cookieMaxAge
+      };
+
+      reply.setCookie('access_token', accessToken, customCookieOptions);
+      reply.setCookie('refresh_token', refreshToken, customRefreshCookieOptions);
 
       // Retornar dados do usuário (sem senha)
       const userResponse = user.toObject();
@@ -200,7 +218,8 @@ export default async function authRoutes(fastify: FastifyInstance) {
 
       return customReply.sucesso({
         user: userResponse,
-        tokenExpiry: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+        tokenExpiry: new Date(Date.now() + (rememberMe ? 7 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000)).toISOString(),
+        rememberMe: rememberMe || false
       }, 'Login realizado com sucesso');
 
     } catch (error: any) {
