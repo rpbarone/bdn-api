@@ -17,7 +17,7 @@ export type UserRole = 'influencer' | 'admin' | 'super_admin';
 
 // Interface para o documento User
 export interface IUser extends Document {
-  id: string;
+  id: string;  // ID amigável (INF1000 ou ADM1000)
   name: string;
   normalizedName?: string;
   username: string;
@@ -91,6 +91,15 @@ export interface IUser extends Document {
 }
 
 const UserSchema = new Schema<IUser>({
+  id: {
+    type: String,
+    required: [true, 'ID é obrigatório'],
+    unique: true,
+    validate: {
+      validator: (v: string) => /^(INF|ADM)\d{4,}$/.test(v),
+      message: 'ID deve estar no formato INF1000 ou ADM1000'
+    }
+  },
   name: { 
     type: String, 
     required: [true, 'Nome é obrigatório'],
@@ -315,9 +324,9 @@ const UserSchema = new Schema<IUser>({
 });
 
 // Índices para performance
+UserSchema.index({ id: 1 });
 UserSchema.index({ role: 1, status: 1 });
 UserSchema.index({ passwordResetToken: 1 });
-
 
 // Método para comparar senha
 UserSchema.methods.comparePassword = async function(candidatePassword: string): Promise<boolean> {

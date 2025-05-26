@@ -29,8 +29,8 @@ export async function authenticateJWT(request: FastifyRequest, reply: FastifyRep
       process.env.JWT_SECRET || 'default-secret'
     ) as JWTPayload;
 
-    // Buscar usuário no banco
-    const user = await User.findById(decoded.userId);
+    // Buscar usuário no banco pelo ID amigável
+    const user = await User.findOne({ id: decoded.userId });
     
     if (!user) {
       return customReply.erro('Usuário não encontrado', 401);
@@ -105,7 +105,7 @@ export async function optionalAuth(request: FastifyRequest, reply: FastifyReply)
       process.env.JWT_SECRET || 'default-secret'
     ) as JWTPayload;
 
-    const user = await User.findById(decoded.userId);
+    const user = await User.findOne({ id: decoded.userId });
     
     if (user && user.status === 'ativo') {
       request.user = user;

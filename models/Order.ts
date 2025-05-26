@@ -554,11 +554,6 @@ const OrderSchema = new Schema<IOrder>({
   toObject: { virtuals: true }
 });
 
-// Virtual para ID sem underscore
-OrderSchema.virtual('_id').get(function(this: any) {
-  return this.id;
-});
-
 // Índices para performance
 OrderSchema.index({ id: 1 });
 OrderSchema.index({ type: 1 });

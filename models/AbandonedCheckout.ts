@@ -266,11 +266,6 @@ const AbandonedCheckoutSchema = new Schema<IAbandonedCheckout>({
   toObject: { virtuals: true }
 });
 
-// Virtual para ID sem underscore
-AbandonedCheckoutSchema.virtual('_id').get(function(this: any) {
-  return this.id;
-});
-
 // Índices para performance
 AbandonedCheckoutSchema.index({ id: 1 });
 AbandonedCheckoutSchema.index({ type: 1 });

@@ -235,11 +235,6 @@ ProductSchema.pre('save', function(next) {
   next();
 });
 
-// Virtual para ID sem underscore
-ProductSchema.virtual('id').get(function(this: any) {
-  return this._id?.toHexString() || this._id?.toString();
-});
-
 // Índices para performance
 ProductSchema.index({ shopifyId: 1 });
 ProductSchema.index({ name: 'text', normalizedName: 'text' });

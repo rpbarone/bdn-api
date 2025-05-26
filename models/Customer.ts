@@ -131,10 +131,6 @@ CustomerSchema.pre('save', function(next) {
   next();
 });
 
-// Virtual para ID sem underscore
-CustomerSchema.virtual('_id').get(function(this: any) {
-  return this.id;
-});
 
 // Índices para performance
 CustomerSchema.index({ id: 1 });

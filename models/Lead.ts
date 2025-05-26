@@ -352,10 +352,6 @@ LeadSchema.methods.comparePassword = async function(candidatePassword: string): 
   }
 };
 
-// Virtual para ID sem underscore
-LeadSchema.virtual('_id').get(function(this: any) {
-  return this.id;
-});
 
 // Índices para performance
 LeadSchema.index({ id: 1 });
