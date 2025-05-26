@@ -29,10 +29,8 @@ module.exports = {
         'name',
         'username',
         'profilePicture',
-        'level',
         'ranking',
         'social',
-        'niches',
         'createdAt'
       ],
       
@@ -51,11 +49,8 @@ module.exports = {
         'bankInfo',
         'address',
         'coupons',
-        'hasReviewedApp',
         'onboarding',
         'referredBy',
-        'leadId',
-        'approvalDate',
         'lastLogin',
         'twoFactorEnabled',
         'updatedAt'
@@ -81,9 +76,7 @@ module.exports = {
         'phone',
         'social',
         'bankInfo',
-        'address',
-        'niches',
-        'hasReviewedApp'
+        'address'
       ],
       
       // Campos que admin pode modificar (tudo exceto quando é super_admin)
