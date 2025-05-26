@@ -6,8 +6,8 @@
 module.exports = {
   // Permissões por operação
   permissions: {
-    // Leitura: usuário pode ver seu próprio perfil, admin+ pode ver todos
-    read: 'isSelf || admin+',
+    // Leitura: usuário pode ver seu próprio perfil, admin pode ver apenas influencers, super_admin pode ver todos
+    read: 'isSelf || (admin && target && target.role === "influencer") || super_admin',
     
     // Criação: apenas admin+ pode criar usuários (registro público usa rota específica)
     create: 'admin+',

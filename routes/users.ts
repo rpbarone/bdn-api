@@ -28,6 +28,8 @@ interface GetUsersQuery {
   niche?: string;
   city?: string;
   state?: string;
+  createdFrom?: string;
+  createdTo?: string;
 }
 
 interface GetUserParams {
@@ -94,6 +96,70 @@ interface UpdateUserBody extends Partial<CreateUserBody> {}
 
 export default async function userRoutes(fastify: FastifyInstance) {
   /**
+   * GET /api/users/stats/admins
+   * Retorna estatísticas sobre admins (apenas para super_admin)
+   */
+  fastify.get('/stats/admins', {
+    preHandler: [authenticateJWT],
+    schema: {
+      tags: ['Users'],
+      summary: 'Obter estatísticas de administradores',
+      description: 'Endpoint exclusivo para super_admin obter estatísticas sobre administradores'
+    }
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const customReply = reply as any;
+    
+    try {
+      // Verificar se é super_admin
+      if (request.user!.role !== 'super_admin') {
+        return customReply.erro('Acesso negado: apenas super_admin pode acessar estas estatísticas', 403);
+      }
+
+      // Executar queries agregadas
+      const [totalAdmins, activeAdmins, inactiveAdmins, adminsByRole] = await Promise.all([
+        // Total de admins (admin + super_admin)
+        User.countDocuments({ role: { $in: ['admin', 'super_admin'] } }),
+        
+        // Admins ativos
+        User.countDocuments({ role: { $in: ['admin', 'super_admin'] }, status: 'ativo' }),
+        
+        // Admins inativos
+        User.countDocuments({ role: { $in: ['admin', 'super_admin'] }, status: 'inativo' }),
+        
+        // Quantidade por role
+        User.aggregate([
+          { $match: { role: { $in: ['admin', 'super_admin'] } } },
+          { $group: { _id: '$role', count: { $sum: 1 } } }
+        ])
+      ]);
+
+      // Formatar resultado dos roles
+      const roleStats = adminsByRole.reduce((acc: any, curr: any) => {
+        acc[curr._id] = curr.count;
+        return acc;
+      }, {});
+
+      const statistics = {
+        total: totalAdmins,
+        ativos: activeAdmins,
+        inativos: inactiveAdmins,
+        porRole: {
+          admin: roleStats.admin || 0,
+          super_admin: roleStats.super_admin || 0
+        },
+        percentualAtivos: totalAdmins > 0 ? ((activeAdmins / totalAdmins) * 100).toFixed(2) + '%' : '0%',
+        percentualInativos: totalAdmins > 0 ? ((inactiveAdmins / totalAdmins) * 100).toFixed(2) + '%' : '0%'
+      };
+
+      return customReply.sucesso(statistics, 'Estatísticas de administradores obtidas com sucesso');
+
+    } catch (error: any) {
+      fastify.log.error(error);
+      return customReply.erro('Erro ao obter estatísticas', 500);
+    }
+  });
+
+  /**
    * GET /api/users
    * Lista todos os usuários com paginação e filtros
    */
@@ -124,7 +190,9 @@ export default async function userRoutes(fastify: FastifyInstance) {
           referredBy: { type: 'string' },
           niche: { type: 'string' },
           city: { type: 'string' },
-          state: { type: 'string' }
+          state: { type: 'string' },
+          createdFrom: { type: 'string', format: 'date' },
+          createdTo: { type: 'string', format: 'date' }
         }
       }
     }
@@ -189,6 +257,24 @@ export default async function userRoutes(fastify: FastifyInstance) {
       // Filtro de nicho (array)
       if (filters.niche) {
         query.niches = { $in: [filters.niche] };
+      }
+
+      // Filtro de período de criação
+      if (filters.createdFrom || filters.createdTo) {
+        query.createdAt = {};
+        if (filters.createdFrom) {
+          query.createdAt.$gte = new Date(filters.createdFrom);
+        }
+        if (filters.createdTo) {
+          const endDate = new Date(filters.createdTo);
+          endDate.setHours(23, 59, 59, 999); // Inclui todo o dia final
+          query.createdAt.$lte = endDate;
+        }
+      }
+
+      // Se usuário é admin (não super_admin), força ver apenas influencers
+      if (request.user!.role === 'admin') {
+        query.role = 'influencer';
       }
 
       // Calcular skip para paginação
