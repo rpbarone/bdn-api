@@ -185,8 +185,8 @@ async function startServer(): Promise<FastifyInstance> {
   // ========================================
   const mongoOptions = {
     maxPoolSize: IS_SMALL_APP ? 3 : 10,
-    serverSelectionTimeoutMS: 3000,
-    socketTimeoutMS: 30000,
+    serverSelectionTimeoutMS: 10000, // Aumentado de 3000 para 10000
+    socketTimeoutMS: 45000, // Aumentado de 30000 para 45000
     maxIdleTimeMS: IS_SMALL_APP ? 10000 : 30000,
     bufferCommands: false
   };

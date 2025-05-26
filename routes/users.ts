@@ -101,10 +101,12 @@ export default async function userRoutes(fastify: FastifyInstance) {
    */
   fastify.get('/stats/admins', {
     preHandler: [authenticateJWT],
-    schema: {
-      tags: ['Users'],
-      summary: 'Obter estatísticas de administradores',
-      description: 'Endpoint exclusivo para super_admin obter estatísticas sobre administradores'
+    config: {
+      swagger: {
+        tags: ['Users'],
+        summary: 'Obter estatísticas de administradores',
+        description: 'Endpoint exclusivo para super_admin obter estatísticas sobre administradores'
+      }
     }
   }, async (request: FastifyRequest, reply: FastifyReply) => {
     const customReply = reply as any;

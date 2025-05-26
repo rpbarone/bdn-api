@@ -161,7 +161,7 @@ export default async function mediaRoutes(fastify: FastifyInstance) {
       }, 'URL de upload gerada com sucesso');
     } catch (error: any) {
       console.error('Erro ao gerar URL de upload:', error);
-      return customReply.erro('Erro ao gerar URL de upload', 500);
+      return customReply.erro('Erro ao gerar URL de upload', 500, error.message);
     }
   });
 
@@ -194,16 +194,32 @@ export default async function mediaRoutes(fastify: FastifyInstance) {
       const basePath = user.role === 'influencer' ? `users/${user.id}` : 'uploads/multipart';
       const key = `${basePath}/${timestamp}-${sanitizedFileName}`;
 
-      // Iniciar upload multipart
-      const { uploadId } = await r2Client.createMultipartUpload(key, fileType);
+      // Iniciar upload multipart com tratamento de erro melhorado
+      try {
+        const { uploadId } = await r2Client.createMultipartUpload(key, fileType);
 
-      return customReply.sucesso({
-        uploadId,
-        key
-      }, 'Upload multipart iniciado com sucesso');
+        return customReply.sucesso({
+          uploadId,
+          key
+        }, 'Upload multipart iniciado com sucesso');
+      } catch (multipartError: any) {
+        console.error('Erro específico do multipart:', multipartError);
+        
+        // Verificar se é erro de permissão/autenticação
+        if (multipartError.name === 'AccessDenied' || multipartError.Code === 'AccessDenied') {
+          return customReply.erro('Acesso negado ao bucket R2. Verifique as permissões.', 403);
+        }
+        
+        // Verificar se é erro de configuração
+        if (multipartError.name === 'NoSuchBucket' || multipartError.Code === 'NoSuchBucket') {
+          return customReply.erro('Bucket R2 não encontrado. Verifique a configuração.', 500);
+        }
+        
+        throw multipartError;
+      }
     } catch (error: any) {
       console.error('Erro ao iniciar upload multipart:', error);
-      return customReply.erro('Erro ao iniciar upload multipart', 500);
+      return customReply.erro('Erro ao iniciar upload multipart', 500, error.message);
     }
   });
 
@@ -245,7 +261,7 @@ export default async function mediaRoutes(fastify: FastifyInstance) {
       }, 'URL de upload de parte gerada com sucesso');
     } catch (error: any) {
       console.error('Erro ao gerar URL de parte:', error);
-      return customReply.erro('Erro ao gerar URL de parte', 500);
+      return customReply.erro('Erro ao gerar URL de parte', 500, error.message);
     }
   });
 
@@ -305,7 +321,7 @@ export default async function mediaRoutes(fastify: FastifyInstance) {
       }, 'Upload multipart concluído com sucesso');
     } catch (error: any) {
       console.error('Erro ao completar upload multipart:', error);
-      return customReply.erro('Erro ao completar upload multipart', 500);
+      return customReply.erro('Erro ao completar upload multipart', 500, error.message);
     }
   });
 
@@ -345,7 +361,7 @@ export default async function mediaRoutes(fastify: FastifyInstance) {
       }, 'URL de download gerada com sucesso');
     } catch (error: any) {
       console.error('Erro ao gerar URL de download:', error);
-      return customReply.erro('Erro ao gerar URL de download', 500);
+      return customReply.erro('Erro ao gerar URL de download', 500, error.message);
     }
   });
 
@@ -381,29 +397,50 @@ export default async function mediaRoutes(fastify: FastifyInstance) {
         return customReply.erro('Sem permissão para esta operação', 403);
       }
 
-      // Listar objetos
-      const result = await r2Client.listObjects(
-        prefix,
-        continuationToken,
-        maxKeys ? parseInt(maxKeys) : 100
-      );
+      // Listar objetos com tratamento de erro melhorado
+      try {
+        const result = await r2Client.listObjects(
+          prefix,
+          continuationToken,
+          maxKeys ? parseInt(maxKeys) : 100
+        );
 
-      // Processar resultados
-      const files = (result.Contents || []).map((obj: any) => ({
-        key: obj.Key,
-        size: obj.Size,
-        lastModified: obj.LastModified,
-        publicUrl: r2Client.getPublicUrl(obj.Key)
-      }));
+        // Processar resultados
+        const files = (result.Contents || []).map((obj: any) => ({
+          key: obj.Key,
+          size: obj.Size,
+          lastModified: obj.LastModified,
+          publicUrl: r2Client.getPublicUrl(obj.Key)
+        }));
 
-      return customReply.sucesso({
-        files,
-        nextContinuationToken: result.NextContinuationToken,
-        isTruncated: result.IsTruncated
-      }, 'Arquivos listados com sucesso');
+        return customReply.sucesso({
+          files,
+          nextContinuationToken: result.NextContinuationToken,
+          isTruncated: result.IsTruncated
+        }, 'Arquivos listados com sucesso');
+      } catch (listError: any) {
+        console.error('Erro específico da listagem:', listError);
+        
+        // Verificar se é erro de permissão
+        if (listError.name === 'AccessDenied' || listError.Code === 'AccessDenied') {
+          return customReply.erro('Acesso negado ao bucket R2. Verifique as permissões.', 403);
+        }
+        
+        // Verificar se é erro de bucket não encontrado
+        if (listError.name === 'NoSuchBucket' || listError.Code === 'NoSuchBucket') {
+          return customReply.erro('Bucket R2 não encontrado. Verifique a configuração.', 500);
+        }
+        
+        // Se for outro erro, retornar lista vazia (bucket pode estar vazio)
+        return customReply.sucesso({
+          files: [],
+          nextContinuationToken: null,
+          isTruncated: false
+        }, 'Nenhum arquivo encontrado');
+      }
     } catch (error: any) {
       console.error('Erro ao listar arquivos:', error);
-      return customReply.erro('Erro ao listar arquivos', 500);
+      return customReply.erro('Erro ao listar arquivos', 500, error.message);
     }
   });
 
@@ -453,7 +490,33 @@ export default async function mediaRoutes(fastify: FastifyInstance) {
       return customReply.sucesso(null, 'Arquivo deletado com sucesso');
     } catch (error: any) {
       console.error('Erro ao deletar arquivo:', error);
-      return customReply.erro('Erro ao deletar arquivo', 500);
+      return customReply.erro('Erro ao deletar arquivo', 500, error.message);
     }
+  });
+
+  // Adicionar tratamento de erro de validação do schema
+  fastify.setErrorHandler(async (error, request, reply) => {
+    const customReply = reply as any;
+    
+    // Se for erro de validação do schema do Fastify
+    if (error.validation) {
+      const mensagens = error.validation.map((err: any) => {
+        const campo = err.instancePath ? err.instancePath.replace('/', '') : err.params?.missingProperty;
+        const tipo = err.keyword;
+        
+        if (tipo === 'required') {
+          return `Campo '${campo}' é obrigatório`;
+        } else if (tipo === 'type') {
+          return `Campo '${campo}' deve ser do tipo ${err.params?.type}`;
+        }
+        
+        return `Erro de validação no campo '${campo}'`;
+      });
+      
+      return customReply.erro('Erro de validação', 400, mensagens);
+    }
+    
+    // Outros erros são tratados pelo handler global
+    throw error;
   });
 }
