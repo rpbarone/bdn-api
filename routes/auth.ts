@@ -8,8 +8,9 @@ import { hashToObjectId, generateAlphanumericCode } from '../utils/crypto';
 import { authenticateJWT } from '../middlewares/jwt';
 
 interface LoginBody {
-  email: string;
-  password: string;
+  email?: string;
+  password?: string;
+  instagram?: string;
   twoFactorCode?: string;
 }
 
@@ -65,22 +66,40 @@ export default async function authRoutes(fastify: FastifyInstance) {
     schema: {
       body: {
         type: 'object',
-        required: ['email', 'password'],
-        properties: {
-          email: { type: 'string', format: 'email' },
-          password: { type: 'string', minLength: 6 },
-          twoFactorCode: { type: 'string', pattern: '^[0-9]{6}$' }
-        }
+        oneOf: [
+          {
+            required: ['email', 'password'],
+            properties: {
+              email: { type: 'string', format: 'email' },
+              password: { type: 'string', minLength: 6 },
+              twoFactorCode: { type: 'string', pattern: '^[0-9]{6}$' }
+            }
+          },
+          {
+            required: ['instagram', 'password'],
+            properties: {
+              instagram: { type: 'string', minLength: 1 },
+              password: { type: 'string', minLength: 6 },
+              twoFactorCode: { type: 'string', pattern: '^[0-9]{6}$' }
+            }
+          }
+        ]
       }
     }
   }, async (request: FastifyRequest<{ Body: LoginBody }>, reply: FastifyReply) => {
-    const { email, password, twoFactorCode } = request.body;
+    const { email, instagram, password, twoFactorCode } = request.body;
     const customReply = reply as any;
 
     try {
-      // Buscar usuário com senha
-      const user = await User.findOne({ email: email.toLowerCase() })
-        .select('+password +twoFactorSecret +twoFactorEnabled +twoFactorRequired');
+      // Buscar usuário por email ou instagram
+      let user;
+      if (email) {
+        user = await User.findOne({ email: email.toLowerCase() })
+          .select('+password +twoFactorSecret +twoFactorEnabled +twoFactorRequired');
+      } else if (instagram) {
+        user = await User.findOne({ 'social.instagram': instagram.toLowerCase() })
+          .select('+password +twoFactorSecret +twoFactorEnabled +twoFactorRequired');
+      }
 
       if (!user) {
         return customReply.erro('Credenciais inválidas', 401);
