@@ -269,6 +269,11 @@ async function startServer(): Promise<FastifyInstance> {
   // Plugin de sanitização (substitui express-mongo-sanitize e xss-clean)
   await fastify.register(require('./plugins/sanitize'));
 
+  // Plugin de cookies (necessário para autenticação JWT)
+  await fastify.register(require('@fastify/cookie'), {
+    secret: process.env.COOKIE_SECRET || process.env.JWT_SECRET || 'default-secret'
+  });
+
   // ========================================
   // SWAGGER CONDICIONAL (SÓ EM DEV/STAGING)
   // ========================================
@@ -520,3 +525,4 @@ ${(!IS_PRODUCTION || process.env.ENABLE_DOCS === 'true') ? `📚 Docs: http://lo
 }
 
 export default startServer;
+

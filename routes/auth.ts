@@ -57,10 +57,6 @@ const REFRESH_COOKIE_OPTIONS = {
 };
 
 export default async function authRoutes(fastify: FastifyInstance) {
-  // Registrar plugin de cookies
-  await fastify.register(require('@fastify/cookie'), {
-    secret: process.env.COOKIE_SECRET || process.env.JWT_SECRET || 'default-secret'
-  });
 
   /**
    * POST /api/auth/login

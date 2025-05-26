@@ -99,7 +99,7 @@ export default async function userRoutes(fastify: FastifyInstance) {
    * GET /api/users
    * Lista todos os usuários com paginação e filtros
    */
-  fastify.get<{ Querystring: GetUsersQuery }>('/users', {
+  fastify.get<{ Querystring: GetUsersQuery }>('/', {
     preHandler: [authenticateJWT, verificarPermissoes('User')],
     schema: {
       querystring: {
@@ -240,7 +240,7 @@ export default async function userRoutes(fastify: FastifyInstance) {
    * GET /api/users/:id
    * Busca um usuário específico
    */
-  fastify.get<{ Params: GetUserParams }>('/users/:id', {
+  fastify.get<{ Params: GetUserParams }>('/:id', {
     preHandler: [authenticateJWT, verificarPermissoes('User')],
     schema: {
       params: {
@@ -276,7 +276,7 @@ export default async function userRoutes(fastify: FastifyInstance) {
    * POST /api/users
    * Cria um novo usuário
    */
-  fastify.post<{ Body: CreateUserBody }>('/users', {
+  fastify.post<{ Body: CreateUserBody }>('/', {
     preHandler: [authenticateJWT, verificarPermissoes('User'), aplicarHooks('User', 'create')],
     schema: {
       body: {
@@ -405,7 +405,7 @@ export default async function userRoutes(fastify: FastifyInstance) {
    * PUT /api/users/:id
    * Atualiza um usuário
    */
-  fastify.put<{ Params: GetUserParams; Body: UpdateUserBody }>('/users/:id', {
+  fastify.put<{ Params: GetUserParams; Body: UpdateUserBody }>('/:id', {
     preHandler: [authenticateJWT, verificarPermissoes('User'), aplicarHooks('User', 'update')],
     schema: {
       params: {
@@ -544,7 +544,7 @@ export default async function userRoutes(fastify: FastifyInstance) {
    * DELETE /api/users/:id
    * Remove um usuário
    */
-  fastify.delete<{ Params: GetUserParams }>('/users/:id', {
+  fastify.delete<{ Params: GetUserParams }>('/:id', {
     preHandler: [authenticateJWT, verificarPermissoes('User'), aplicarHooks('User', 'delete')],
     schema: {
       params: {

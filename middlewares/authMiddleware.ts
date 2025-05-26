@@ -46,6 +46,27 @@ const config: AppConfig = {
 const cache = new Map<string, any>();
 
 /**
+ * Normaliza objetos para garantir que tenham prototype correto
+ * Resolve problemas com objetos retornados por .lean() do Mongoose
+ */
+const normalizarObjeto = (obj: any): any => {
+  if (!obj || typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) return obj.map(normalizarObjeto);
+  
+  // Se for Date, RegExp, etc, retornar como está
+  if (obj.constructor && obj.constructor !== Object) return obj;
+  
+  // Criar novo objeto com prototype correto
+  const normalizado: any = {};
+  for (const key in obj) {
+    if (Object.prototype.hasOwnProperty.call(obj, key)) {
+      normalizado[key] = obj[key];
+    }
+  }
+  return normalizado;
+};
+
+/**
  * Middleware de verificação de permissões para Fastify
  */
 export const verificarPermissoes = (modelo: string) => {
@@ -176,11 +197,36 @@ const avaliarExpressao = (expr: string, ctx: PermissionContext): boolean => {
 
   // Avaliação segura da expressão
   try {
-    // NOTA: Expressões são sempre hardcoded em arquivos de policy
-    // Nunca vêm de input do usuário, então new Function é seguro aqui
-    // eslint-disable-next-line @typescript-eslint/ban-types
-    const func = new Function(...Object.keys(contexto), `return ${expr}`) as (...args: any[]) => boolean;
-    return func(...Object.values(contexto));
+    // Debug removido
+    
+    // Criar contexto seguro para eval
+    const safeEval = (expr: string): boolean => {
+      const { influencer, admin, super_admin, isSelf, self, target, canModifyUser } = contexto;
+      const influencerPlus = contexto['influencer+'];
+      const adminPlus = contexto['admin+'];
+      const superAdminPlus = contexto['super_admin+'];
+      const config = {
+        roles: { influencer: 1, admin: 2, super_admin: 3 }
+      };
+      
+      // Substituir operadores + na expressão
+      const safeExpr = expr
+        .replace(/influencer\+/g, 'influencerPlus')
+        .replace(/admin\+/g, 'adminPlus')
+        .replace(/super_admin\+/g, 'superAdminPlus');
+      
+      // Adicionar body ao contexto se existir
+      const body = ctx.body || {};
+      const operation = ctx.operacao;
+      
+      // console.log('DEBUG - Expressão original:', expr);
+      // console.log('DEBUG - Expressão safe:', safeExpr);
+      
+      // eslint-disable-next-line no-eval
+      return eval(safeExpr);
+    };
+    
+    return safeEval(expr);
   } catch (err: any) {
     console.error(`Erro ao avaliar expressão: ${expr}`, err.message);
     return false; // Expressão inválida = negado
@@ -195,7 +241,11 @@ const verificarRegras = async (ctx: PermissionContext): Promise<string | null> =
 
   for (const [nome, expr] of Object.entries(ctx.permissions.rules)) {
     try {
-      const violou = !avaliarExpressao(expr, { ...ctx, operation: ctx.operacao } as any);
+      // Pular regras que não se aplicam ao contexto atual
+      if (!ctx.body && expr.includes('body.')) continue;
+      if (!ctx.target && expr.includes('target.')) continue;
+      
+      const violou = !avaliarExpressao(expr, ctx);
       if (violou) {
         return `Regra violada: ${nome}`;
       }
@@ -214,6 +264,9 @@ const verificarRegras = async (ctx: PermissionContext): Promise<string | null> =
 const filtrarCamposEscrita = (ctx: PermissionContext): void => {
   const fieldsConfig = ctx.permissions?.fields?.write;
   if (!fieldsConfig || !ctx.body) return;
+
+  // Normalizar body antes de processar
+  ctx.body = normalizarObjeto(ctx.body);
 
   const { user, body, isSelf } = ctx;
   const camposPermitidos = new Set<string>();
@@ -245,6 +298,9 @@ const filtrarCamposLeitura = (data: any, ctx: PermissionContext): any => {
   const fieldsConfig = ctx.permissions?.fields?.read;
   if (!fieldsConfig || !data) return data;
 
+  // Normalizar dados antes de processar
+  const dadosNormalizados = normalizarObjeto(data);
+
   const { user, isSelf } = ctx;
   const camposPermitidos = new Set<string>();
 
@@ -272,7 +328,7 @@ const filtrarCamposLeitura = (data: any, ctx: PermissionContext): any => {
     return filtered;
   };
 
-  return Array.isArray(data) ? data.map(filtrar) : filtrar(data);
+  return Array.isArray(dadosNormalizados) ? dadosNormalizados.map(filtrar) : filtrar(dadosNormalizados);
 };
 
 /**
