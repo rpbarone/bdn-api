@@ -81,6 +81,7 @@ export interface IUser extends Document {
   // Campos 2FA
   twoFactorSecret?: string;
   twoFactorEnabled: boolean;
+  twoFactorRequired: boolean; // Indica se 2FA é obrigatório para este usuário
   twoFactorBackupCodes?: string[];
   // Campos reset senha
   passwordResetToken?: string;
@@ -303,6 +304,10 @@ const UserSchema = new Schema<IUser>({
     select: false
   },
   twoFactorEnabled: {
+    type: Boolean,
+    default: false
+  },
+  twoFactorRequired: {
     type: Boolean,
     default: false
   },

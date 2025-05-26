@@ -137,6 +137,17 @@ const UserHooks = {
           ctx.data.password = await bcrypt.hash(ctx.data.password, rounds);
         }
       }
+    },
+    {
+      name: 'enforce2FAForAdmins',
+      run: async (ctx) => {
+        // Para admin e super_admin, 2FA deve ser obrigatório
+        if (ctx.data?.role === 'admin' || ctx.data?.role === 'super_admin') {
+          // Marcar que 2FA é obrigatório
+          ctx.data.twoFactorRequired = true;
+          console.log(`🔐 2FA marcado como obrigatório para ${ctx.data.role}: ${ctx.data.name}`);
+        }
+      }
     }
   ],
 
@@ -160,6 +171,17 @@ const UserHooks = {
         if (ctx.data?.password) {
           const rounds = SECURITY_CONFIG.BCRYPT_SALT_ROUNDS;
           ctx.data.password = await bcrypt.hash(ctx.data.password, rounds);
+        }
+      }
+    },
+    {
+      name: 'enforce2FAForAdminsOnUpdate',
+      condition: 'data.role', // Só executa se role for alterado
+      run: async (ctx) => {
+        // Se está mudando para admin ou super_admin, marcar 2FA como obrigatório
+        if (ctx.data?.role === 'admin' || ctx.data?.role === 'super_admin') {
+          ctx.data.twoFactorRequired = true;
+          console.log(`🔐 2FA marcado como obrigatório após mudança de role para ${ctx.data.role}`);
         }
       }
     },

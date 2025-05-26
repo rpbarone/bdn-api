@@ -4,7 +4,6 @@ import speakeasy from 'speakeasy';
 import qrcode from 'qrcode';
 import User from '../models/User';
 import postmark from '../integrations/postmark';
-import { IUser } from '../types';
 import { hashToObjectId, generateAlphanumericCode } from '../utils/crypto';
 import { authenticateJWT } from '../middlewares/jwt';
 
@@ -81,7 +80,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
     try {
       // Buscar usuário com senha
       const user = await User.findOne({ email: email.toLowerCase() })
-        .select('+password +twoFactorSecret +twoFactorEnabled');
+        .select('+password +twoFactorSecret +twoFactorEnabled +twoFactorRequired');
 
       if (!user) {
         return customReply.erro('Credenciais inválidas', 401);
@@ -98,15 +97,26 @@ export default async function authRoutes(fastify: FastifyInstance) {
         return customReply.erro('Credenciais inválidas', 401);
       }
 
-      // Verificar 2FA se habilitado
-      if (user.twoFactorEnabled) {
-        // Para admin e super_admin, 2FA é obrigatório
-        if ((user.role === 'admin' || user.role === 'super_admin') && !twoFactorCode) {
-          return customReply.erro('Código de autenticação obrigatório', 401, {
-            requires2FA: true
+      // Para admin e super_admin, verificar se 2FA está configurado
+      if ((user.role === 'admin' || user.role === 'super_admin')) {
+        // Se 2FA não está habilitado, forçar configuração
+        if (!user.twoFactorEnabled) {
+          return customReply.erro('Administradores devem configurar autenticação de dois fatores antes do primeiro acesso', 403, {
+            requires2FASetup: true,
+            userId: user.id
           });
         }
 
+        // Se 2FA está habilitado mas código não foi fornecido
+        if (!twoFactorCode) {
+          return customReply.erro('Código de autenticação obrigatório para administradores', 401, {
+            requires2FA: true
+          });
+        }
+      }
+
+      // Verificar 2FA se habilitado
+      if (user.twoFactorEnabled) {
         if (twoFactorCode) {
           const verified = speakeasy.totp.verify({
             secret: user.twoFactorSecret!,
@@ -128,6 +138,11 @@ export default async function authRoutes(fastify: FastifyInstance) {
             user.twoFactorBackupCodes!.splice(backupIndex, 1);
             await user.save();
           }
+        } else if (user.role !== 'admin' && user.role !== 'super_admin') {
+          // Para usuários comuns, 2FA é opcional se estiver habilitado
+          return customReply.erro('Código de autenticação necessário', 401, {
+            requires2FA: true
+          });
         }
       }
 
@@ -348,6 +363,135 @@ export default async function authRoutes(fastify: FastifyInstance) {
     } catch (error: any) {
       fastify.log.error(error);
       return customReply.erro('Erro ao redefinir senha', 500);
+    }
+  });
+
+  /**
+   * POST /api/auth/2fa/setup-required
+   * Configuração inicial de 2FA para administradores (sem autenticação JWT)
+   */
+  fastify.post<{ Body: { userId: string; password: string } }>('/2fa/setup-required', {
+    schema: {
+      body: {
+        type: 'object',
+        required: ['userId', 'password'],
+        properties: {
+          userId: { type: 'string' },
+          password: { type: 'string' }
+        }
+      }
+    }
+  }, async (request: FastifyRequest<{ Body: { userId: string; password: string } }>, reply: FastifyReply) => {
+    const { userId, password } = request.body;
+    const customReply = reply as any;
+
+    try {
+      const user = await User.findOne({ id: userId })
+        .select('+password +twoFactorEnabled +twoFactorRequired');
+
+      if (!user) {
+        return customReply.erro('Usuário não encontrado', 404);
+      }
+
+      // Verificar se é admin ou super_admin
+      if (user.role !== 'admin' && user.role !== 'super_admin') {
+        return customReply.erro('Esta rota é apenas para administradores', 403);
+      }
+
+      // Verificar se já tem 2FA configurado
+      if (user.twoFactorEnabled) {
+        return customReply.erro('Autenticação de dois fatores já está configurada', 400);
+      }
+
+      // Verificar senha
+      const isPasswordValid = await user.comparePassword(password);
+      if (!isPasswordValid) {
+        return customReply.erro('Senha incorreta', 401);
+      }
+
+      // Gerar secret
+      const secret = speakeasy.generateSecret({
+        name: `${process.env.APP_NAME || 'BDN'} (${user.email})`,
+        length: 32
+      });
+
+      // Gerar códigos de backup
+      const backupCodes = Array.from({ length: 8 }, () => 
+        generateAlphanumericCode(6)
+      );
+
+      // Salvar temporariamente
+      user.twoFactorSecret = secret.base32;
+      user.twoFactorBackupCodes = backupCodes;
+      await user.save();
+
+      // Gerar QR Code
+      const qrCodeDataUrl = await qrcode.toDataURL(secret.otpauth_url!);
+
+      // Enviar email com QR Code e códigos de backup
+      await postmark.send2FASetupEmail(user.email, user.name, qrCodeDataUrl, backupCodes);
+
+      return customReply.sucesso({
+        secret: secret.base32,
+        qrCode: qrCodeDataUrl,
+        backupCodes
+      }, 'Configure o Google Authenticator e confirme com um código');
+
+    } catch (error: any) {
+      fastify.log.error(error);
+      return customReply.erro('Erro ao configurar 2FA', 500);
+    }
+  });
+
+  /**
+   * POST /api/auth/2fa/verify-setup
+   * Confirma configuração inicial de 2FA para administradores
+   */
+  fastify.post<{ Body: { userId: string; token: string } }>('/2fa/verify-setup', {
+    schema: {
+      body: {
+        type: 'object',
+        required: ['userId', 'token'],
+        properties: {
+          userId: { type: 'string' },
+          token: { type: 'string', pattern: '^[0-9]{6}$' }
+        }
+      }
+    }
+  }, async (request: FastifyRequest<{ Body: { userId: string; token: string } }>, reply: FastifyReply) => {
+    const { userId, token } = request.body;
+    const customReply = reply as any;
+
+    try {
+      const user = await User.findOne({ id: userId })
+        .select('+twoFactorSecret +twoFactorEnabled');
+
+      if (!user || !user.twoFactorSecret) {
+        return customReply.erro('Configuração 2FA não encontrada', 400);
+      }
+
+      // Verificar token
+      const verified = speakeasy.totp.verify({
+        secret: user.twoFactorSecret,
+        encoding: 'base32',
+        token,
+        window: 2
+      });
+
+      if (!verified) {
+        return customReply.erro('Código inválido', 400);
+      }
+
+      // Ativar 2FA
+      user.twoFactorEnabled = true;
+      user.twoFactorRequired = true;
+      await user.save();
+
+      return customReply.sucesso(null, 'Autenticação de dois fatores ativada com sucesso. Faça login novamente.');
+
+    } catch (error: any) {
+      fastify.log.error(error);
+      return customReply.erro('Erro ao verificar 2FA', 500);
     }
   });
 
