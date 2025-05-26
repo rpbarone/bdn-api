@@ -244,11 +244,20 @@ let r2Instance: R2Client | null = null;
 
 export function getR2Client(): R2Client {
   if (!r2Instance) {
+    // Verificar se as variáveis de ambiente estão configuradas
+    if (!process.env.R2_ACCOUNT_ID || !process.env.R2_ACCESS_KEY_ID || 
+        !process.env.R2_SECRET_ACCESS_KEY || !process.env.R2_BUCKET_NAME) {
+      throw new Error(
+        'Configuração R2 incompleta. Verifique as variáveis de ambiente: ' +
+        'R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME'
+      );
+    }
+    
     const config: R2Config = {
-      accountId: process.env.R2_ACCOUNT_ID!,
-      accessKeyId: process.env.R2_ACCESS_KEY_ID!,
-      secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
-      bucketName: process.env.R2_BUCKET_NAME!,
+      accountId: process.env.R2_ACCOUNT_ID,
+      accessKeyId: process.env.R2_ACCESS_KEY_ID,
+      secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+      bucketName: process.env.R2_BUCKET_NAME,
       publicBucketUrl: process.env.R2_PUBLIC_URL,
       region: process.env.R2_REGION || 'auto'
     };

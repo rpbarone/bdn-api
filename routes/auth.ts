@@ -138,10 +138,10 @@ export default async function authRoutes(fastify: FastifyInstance) {
       }
 
       // Verificar 2FA se habilitado
-      if (user.twoFactorEnabled) {
+      if (user.twoFactorEnabled && user.twoFactorSecret) {
         if (twoFactorCode) {
           const verified = speakeasy.totp.verify({
-            secret: user.twoFactorSecret!,
+            secret: user.twoFactorSecret,
             encoding: 'base32',
             token: twoFactorCode,
             window: 2 // Permite pequena diferença de tempo

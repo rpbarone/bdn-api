@@ -9,7 +9,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configurações
-BASE_URL="http://localhost:5000"
+BASE_URL="http://localhost:5001"
 API_URL="${BASE_URL}/api"
 
 # Variáveis para armazenar tokens e dados
@@ -42,8 +42,6 @@ login() {
     local password=$2
     local role=$3
     
-    print_test "Fazendo login como $role ($email)"
-    
     response=$(curl -s -X POST \
         -H "Content-Type: application/json" \
         -d "{\"email\":\"$email\",\"password\":\"$password\"}" \
@@ -51,12 +49,10 @@ login() {
         -c cookies.txt)
     
     if echo "$response" | grep -q "sucesso.*true"; then
-        # Extrair token do cookie
-        token=$(grep "access_token" cookies.txt | awk '{print $7}')
-        print_success "Login realizado com sucesso"
+        # Extrair token do cookie - última coluna da linha que contém access_token
+        token=$(grep "access_token" cookies.txt | awk '{print $NF}')
         echo "$token"
     else
-        print_error "Falha no login: $response"
         echo ""
     fi
 }
@@ -92,12 +88,16 @@ test_influencer() {
     echo -e "${YELLOW}═══════════════════════════════════════════${NC}"
     
     # Login como influencer
+    print_test "Fazendo login como influencer"
     INFLUENCER_TOKEN=$(login "influencer@test.com" "Test@123" "influencer")
     
     if [ -z "$INFLUENCER_TOKEN" ]; then
         print_error "Não foi possível obter token de influencer"
         return
     fi
+    
+    print_success "Login realizado com sucesso"
+    print_info "Token: $INFLUENCER_TOKEN"
     
     # 1. Gerar URL de upload para foto de perfil
     print_test "Gerando URL de upload para foto de perfil"

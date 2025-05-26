@@ -3,54 +3,6 @@ import { authenticateJWT } from '../middlewares/jwt';
 import { getR2Client } from '../integrations/r2';
 import User from '../models/User';
 
-interface UploadRequest {
-  Body: {
-    fileName: string;
-    fileType: string;
-    fileSize?: number;
-  };
-}
-
-interface MultipartInitRequest {
-  Body: {
-    fileName: string;
-    fileType: string;
-  };
-}
-
-interface MultipartUrlRequest {
-  Body: {
-    key: string;
-    uploadId: string;
-    partNumber: number;
-  };
-}
-
-interface MultipartCompleteRequest {
-  Body: {
-    key: string;
-    uploadId: string;
-    parts: Array<{
-      ETag: string;
-      PartNumber: number;
-    }>;
-  };
-}
-
-interface DeleteRequest {
-  Body: {
-    key: string;
-  };
-}
-
-interface ListRequest {
-  Querystring: {
-    prefix?: string;
-    continuationToken?: string;
-    maxKeys?: string;
-  };
-}
-
 export default async function mediaRoutes(fastify: FastifyInstance) {
   const r2Client = getR2Client();
 
@@ -70,11 +22,12 @@ export default async function mediaRoutes(fastify: FastifyInstance) {
         }
       }
     }
-  }, async (request: FastifyRequest<UploadRequest>, reply: FastifyReply) => {
+  }, async (request, reply) => {
     const customReply = reply as any;
+    const body = request.body as { fileName: string; fileType: string; fileSize?: number };
     
     try {
-      const { fileName, fileType } = request.body;
+      const { fileName, fileType } = body;
       const user = request.user!;
 
       // Validar tipo de arquivo (apenas imagens)
@@ -97,7 +50,7 @@ export default async function mediaRoutes(fastify: FastifyInstance) {
       }, 'URL de upload gerada com sucesso');
     } catch (error: any) {
       console.error('Erro ao gerar URL de upload:', error);
-      return customReply.erro('Erro ao gerar URL de upload', 500);
+      return customReply.erro('Erro ao gerar URL de upload', 500, error.message);
     }
   });
 
@@ -115,11 +68,12 @@ export default async function mediaRoutes(fastify: FastifyInstance) {
         }
       }
     }
-  }, async (request: FastifyRequest<{ Body: { key: string } }>, reply: FastifyReply) => {
+  }, async (request, reply) => {
     const customReply = reply as any;
+    const body = request.body as { key: string };
     
     try {
-      const { key } = request.body;
+      const { key } = body;
       const user = request.user!;
 
       // Verificar se a chave pertence ao usuário
@@ -178,11 +132,12 @@ export default async function mediaRoutes(fastify: FastifyInstance) {
         }
       }
     }
-  }, async (request: FastifyRequest<UploadRequest & { Body: { path?: string } }>, reply: FastifyReply) => {
+  }, async (request, reply) => {
     const customReply = reply as any;
+    const body = request.body as { fileName: string; fileType: string; path?: string };
     
     try {
-      const { fileName, fileType, path } = request.body;
+      const { fileName, fileType, path } = body;
       const user = request.user!;
 
       // Verificar permissão (apenas admin e super_admin)
@@ -225,11 +180,12 @@ export default async function mediaRoutes(fastify: FastifyInstance) {
         }
       }
     }
-  }, async (request: FastifyRequest<MultipartInitRequest>, reply: FastifyReply) => {
+  }, async (request, reply) => {
     const customReply = reply as any;
+    const body = request.body as { fileName: string; fileType: string };
     
     try {
-      const { fileName, fileType } = request.body;
+      const { fileName, fileType } = body;
       const user = request.user!;
 
       // Gerar chave para o arquivo
@@ -267,11 +223,12 @@ export default async function mediaRoutes(fastify: FastifyInstance) {
         }
       }
     }
-  }, async (request: FastifyRequest<MultipartUrlRequest>, reply: FastifyReply) => {
+  }, async (request, reply) => {
     const customReply = reply as any;
+    const body = request.body as { key: string; uploadId: string; partNumber: number };
     
     try {
-      const { key, uploadId, partNumber } = request.body;
+      const { key, uploadId, partNumber } = body;
       const user = request.user!;
 
       // Verificar se influencer está acessando apenas seus arquivos
@@ -318,11 +275,16 @@ export default async function mediaRoutes(fastify: FastifyInstance) {
         }
       }
     }
-  }, async (request: FastifyRequest<MultipartCompleteRequest>, reply: FastifyReply) => {
+  }, async (request, reply) => {
     const customReply = reply as any;
+    const body = request.body as { 
+      key: string; 
+      uploadId: string; 
+      parts: Array<{ ETag: string; PartNumber: number }> 
+    };
     
     try {
-      const { key, uploadId, parts } = request.body;
+      const { key, uploadId, parts } = body;
       const user = request.user!;
 
       // Verificar se influencer está acessando apenas seus arquivos
@@ -361,11 +323,12 @@ export default async function mediaRoutes(fastify: FastifyInstance) {
         }
       }
     }
-  }, async (request: FastifyRequest<{ Body: { key: string } }>, reply: FastifyReply) => {
+  }, async (request, reply) => {
     const customReply = reply as any;
+    const body = request.body as { key: string };
     
     try {
-      const { key } = request.body;
+      const { key } = body;
       const user = request.user!;
 
       // Verificar se influencer está acessando apenas seus arquivos
@@ -401,12 +364,17 @@ export default async function mediaRoutes(fastify: FastifyInstance) {
         }
       }
     }
-  }, async (request: FastifyRequest<ListRequest>, reply: FastifyReply) => {
+  }, async (request, reply) => {
     const customReply = reply as any;
+    const query = request.query as { 
+      prefix?: string; 
+      continuationToken?: string; 
+      maxKeys?: string 
+    };
     
     try {
       const user = request.user!;
-      const { prefix, continuationToken, maxKeys } = request.query;
+      const { prefix, continuationToken, maxKeys } = query;
 
       // Verificar permissão (apenas admin e super_admin)
       if (!['admin', 'super_admin'].includes(user.role)) {
@@ -453,11 +421,12 @@ export default async function mediaRoutes(fastify: FastifyInstance) {
         }
       }
     }
-  }, async (request: FastifyRequest<DeleteRequest>, reply: FastifyReply) => {
+  }, async (request, reply) => {
     const customReply = reply as any;
+    const body = request.body as { key: string };
     
     try {
-      const { key } = request.body;
+      const { key } = body;
       const user = request.user!;
 
       // Verificar permissões
