@@ -354,7 +354,6 @@ LeadSchema.methods.comparePassword = async function(candidatePassword: string): 
 
 
 // Índices para performance
-LeadSchema.index({ id: 1 });
 LeadSchema.index({ currentStage: 1 });
 LeadSchema.index({ 'adminReview.status': 1 });
 LeadSchema.index({ indicatedBy: 1 });

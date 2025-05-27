@@ -318,7 +318,6 @@ const UserSchema = new Schema<IUser>({
 });
 
 // Índices para performance
-UserSchema.index({ id: 1 });
 UserSchema.index({ role: 1, status: 1 });
 UserSchema.index({ passwordResetToken: 1 });
 

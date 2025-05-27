@@ -267,7 +267,6 @@ const AbandonedCheckoutSchema = new Schema<IAbandonedCheckout>({
 });
 
 // Índices para performance
-AbandonedCheckoutSchema.index({ id: 1 });
 AbandonedCheckoutSchema.index({ type: 1 });
 AbandonedCheckoutSchema.index({ influencerId: 1 });
 AbandonedCheckoutSchema.index({ customerId: 1 });

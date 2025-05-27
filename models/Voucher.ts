@@ -174,8 +174,31 @@ VoucherSchema.virtual('id').get(function(this: any) {
   return this._id?.toHexString() || this._id?.toString();
 });
 
+// Virtual para status calculado
+VoucherSchema.virtual('status').get(function(this: IVoucher) {
+  const now = new Date();
+  
+  if (!this.isActive) {
+    return 'Inativo';
+  }
+  
+  if (now < this.startDate) {
+    return 'Agendado';
+  }
+  
+  if (now > this.endDate) {
+    return 'Expirado';
+  }
+  
+  // Se tem limite de usos e já atingiu
+  if (this.maxUses && this.currentUses >= this.maxUses) {
+    return 'Esgotado';
+  }
+  
+  return 'Ativo';
+});
+
 // Índices para performance
-VoucherSchema.index({ code: 1 });
 VoucherSchema.index({ isActive: 1, startDate: 1, endDate: 1 });
 VoucherSchema.index({ currentUses: 1, maxUses: 1 });
 VoucherSchema.index({ niches: 1 });

@@ -555,7 +555,6 @@ const OrderSchema = new Schema<IOrder>({
 });
 
 // Índices para performance
-OrderSchema.index({ id: 1 });
 OrderSchema.index({ type: 1 });
 OrderSchema.index({ influencerId: 1 });
 OrderSchema.index({ customerId: 1 });

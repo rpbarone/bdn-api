@@ -56,6 +56,9 @@ const normalizarObjeto = (obj: any): any => {
   // Se for Date, RegExp, etc, retornar como está
   if (obj.constructor && obj.constructor !== Object) return obj;
   
+  // Se já tem hasOwnProperty, não precisa normalizar
+  if (typeof obj.hasOwnProperty === 'function') return obj;
+  
   // Criar novo objeto com prototype correto
   const normalizado: any = {};
   for (const key in obj) {

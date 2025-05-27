@@ -29,8 +29,10 @@ export interface ICustomer extends Document {
   };
   orders: string[];
   notes?: ICustomerNote[];
+  tags?: string[];
   createdAt: Date;
   updatedAt: Date;
+  updatedBy?: string;
 }
 
 const CustomerSchema = new Schema<ICustomer>({
@@ -116,7 +118,16 @@ const CustomerSchema = new Schema<ICustomer>({
       type: Date,
       default: Date.now
     }
-  }]
+  }],
+  tags: [{
+    type: String,
+    trim: true,
+    enum: ['Frequente', 'Novo', 'VIP', 'Ativo', 'Inativo', 'Lead']
+  }],
+  updatedBy: {
+    type: Schema.Types.ObjectId,
+    ref: 'User'
+  }
 }, {
   timestamps: true,
   toJSON: { virtuals: true },
@@ -133,9 +144,10 @@ CustomerSchema.pre('save', function(next) {
 
 
 // Índices para performance
-CustomerSchema.index({ id: 1 });
 CustomerSchema.index({ email: 1 });
 CustomerSchema.index({ phone: 1 });
 CustomerSchema.index({ normalizedName: 'text' });
+CustomerSchema.index({ tags: 1 });
+CustomerSchema.index({ 'financials.totalSpent': -1 });
 
 export default mongoose.model<ICustomer>('Customer', CustomerSchema);

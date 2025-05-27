@@ -236,7 +236,6 @@ ProductSchema.pre('save', function(next) {
 });
 
 // Índices para performance
-ProductSchema.index({ shopifyId: 1 });
 ProductSchema.index({ name: 'text', normalizedName: 'text' });
 ProductSchema.index({ categoryId: 1 });
 ProductSchema.index({ isActive: 1, isArchived: 1 });

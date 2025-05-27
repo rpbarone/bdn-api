@@ -186,8 +186,31 @@ CouponSchema.virtual('id').get(function(this: any) {
   return this._id?.toHexString() || this._id?.toString();
 });
 
+// Virtual para status calculado
+CouponSchema.virtual('status').get(function(this: ICoupon) {
+  const now = new Date();
+  
+  if (!this.isActive) {
+    return 'Inativo';
+  }
+  
+  if (now < this.startDate) {
+    return 'Agendado';
+  }
+  
+  if (now > this.endDate) {
+    return 'Expirado';
+  }
+  
+  // Se tem limite de usos e já atingiu
+  if (this.maxUses && this.currentUses >= this.maxUses) {
+    return 'Esgotado';
+  }
+  
+  return 'Ativo';
+});
+
 // Índices para performance
-CouponSchema.index({ code: 1 });
 CouponSchema.index({ origin: 1, associatedInfluencer: 1 });
 CouponSchema.index({ isActive: 1, startDate: 1, endDate: 1 });
 CouponSchema.index({ currentUses: 1, maxUses: 1 });
